@@ -4,8 +4,11 @@ import numpy as np
 import open3d as o3d
 from nuscenes.nuscenes import NuScenes
 from pyquaternion import Quaternion
-import os 
+from nuscenes.utils.geometry_utils import points_in_box
 import time
+from nuscenes.utils.data_classes import Box
+import matplotlib.pyplot as plt
+
 
 # Initialize NuScenes devkit
 DATA_ROOT = 'data/sets/nuscenes'
@@ -50,35 +53,45 @@ def aggregate_pc():
     """
 
     aggregated_pc = []
-    for idx, scene in enumerate(nusc.scene):
-        sample_token = scene['first_sample_token']
+    annotations = []
+    idx = 1 # Scene index
+    sample_token = nusc.scene[idx]['first_sample_token']  
+    print(f"Scene {idx}: {nusc.scene[idx]['name']}")   
+    while sample_token:
+        sample = nusc.get('sample', sample_token)
+        lidar_data_token = sample['data']['LIDAR_TOP']
 
-        while sample_token:
-            sample = nusc.get('sample', sample_token)
-            lidar_data_token = sample['data']['LIDAR_TOP']
+        cam_data_token = sample['data']['CAM_FRONT']
+        cam_data = nusc.get('sample_data', cam_data_token)
 
-            # Get lidar sample data
-            lidar_data = nusc.get('sample_data', lidar_data_token)        
 
-            lidar_calib = nusc.get('calibrated_sensor', lidar_data['calibrated_sensor_token'])
-            lidar_R = lidar_calib['rotation']                                                       # Quaternion [w, x, y, z]
-            lidar_t = np.array(lidar_calib['translation'])                                          # [x, y, z]
+        # Get lidar sample data
+        lidar_data = nusc.get('sample_data', lidar_data_token)        
 
-            # Load the point cloud
-            pc  = load_lidar_point_cloud(lidar_data_token)
+        lidar_calib = nusc.get('calibrated_sensor', lidar_data['calibrated_sensor_token'])
+        lidar_R = lidar_calib['rotation']                                                       # Quaternion [w, x, y, z]
+        lidar_t = np.array(lidar_calib['translation'])                                          # [x, y, z]
 
-            # Get the ego pose in global coordinate frame
-            ego_pose = nusc.get('ego_pose', lidar_data['ego_pose_token'])
-            ego_t = np.array(ego_pose['translation'])                                               # [x, y, z]
-            ego_R = ego_pose['rotation']                                                            # Quaternion [w, x, y, z]
+        # Load the point cloud
+        pc  = load_lidar_point_cloud(lidar_data_token)
 
-            # Transform the point cloud to global coordinate frame using ego pose
-            pc_global = transform_point_cloud(pc, lidar_t, lidar_R, ego_t, ego_R)
-            if idx == 1:
-                aggregated_pc.append(pc_global)
-            sample_token = sample['next']
+        # Get the ego pose in global coordinate frame
+        ego_pose = nusc.get('ego_pose', lidar_data['ego_pose_token'])
+        ego_t = np.array(ego_pose['translation'])                                               # [x, y, z]
+        ego_R = ego_pose['rotation']                                                            # Quaternion [w, x, y, z]
 
-    return aggregated_pc
+        # Transform the point cloud to global coordinate frame using ego pose
+        pc_global = transform_point_cloud(pc, lidar_t, lidar_R, ego_t, ego_R)
+
+        aggregated_pc.append(pc_global)
+
+        for ann_token in sample['anns']:
+            ann = nusc.get('sample_annotation', ann_token)
+            annotations.append(ann)
+
+        sample_token = sample['next']
+
+    return aggregated_pc, annotations
 
 def draw_pc(pc):
     """
@@ -86,16 +99,15 @@ def draw_pc(pc):
     """
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pc)
-    # o3d.visualization.draw_geometries([pcd])
 
     vis = o3d.visualization.Visualizer()
     vis.create_window(window_name="Point Cloud", width=800, height=600)
-    vis.get_render_option().background_color = np.array([0, 0, 0])  # Black background
+    # vis.get_render_option().background_color = np.array([0, 0, 0])  # Black background
     vis.add_geometry(pcd)
     vis.run()
     vis.destroy_window()
 
-def visualize_pc(pc_sequence, delay=0.2):
+def visualize_pc(pc_sequence, delay=0.1):
     """
     Visualize a sequence of point clouds to simulate motion.
     
@@ -106,24 +118,23 @@ def visualize_pc(pc_sequence, delay=0.2):
     vis = o3d.visualization.Visualizer()
     vis.create_window()
 
-    # vis.get_render_option().point_size = 0.05
-    vis.get_render_option().background_color = np.array([0, 0, 0])
+    # vis.get_render_option().background_color = np.array([0, 0, 0])
 
     # Add an initial point cloud geometry to the visualizer
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pc_sequence[0])
     vis.add_geometry(pcd)
-    # !view_control = vis.get_view_control()
-
+    accumlated_pc = np.array(pc_sequence[0])
 
     # Iterate through the point cloud sequence
     for pc in pc_sequence[1:]:
+
+        accumlated_pc = np.vstack((accumlated_pc, pc))
+
         # Update the point cloud with new data
-        pcd.points = o3d.utility.Vector3dVector(pc)
+        pcd.points = o3d.utility.Vector3dVector(accumlated_pc)
         vis.update_geometry(pcd)
 
-        # !bbox = pcd.get_axis_aligned_bounding_box()
-        # !view_control.set_lookat(bbox.get_center())
         # Render the frame and introduce a delay to simulate motion
         vis.poll_events()
         vis.update_renderer()
@@ -131,24 +142,113 @@ def visualize_pc(pc_sequence, delay=0.2):
     vis.clear_geometries()
     vis.destroy_window()
 
-def visualize_moving_objects(pc):
+
+def detect_moving_objects(agg_pc, annotations, v_t = 0.25):
     """
-    Removes moving objects from the point cloud.
+    Identify points corresponding to moving objects in the aggregated point cloud.
 
-    Args:
-    - pc: np.ndarray of shape (N, 3) representing the point cloud.
+    Parameters:
+        aggregated_pc (np.ndarray): Aggregated global point cloud (Nx3).
+        annotations (list): List of annotations for the scene.
+        velocity_threshold (float): Minimum velocity to consider an object as moving.
+
+    Returns:
+        moving_points (np.ndarray): Points corresponding to moving objects.
+        static_points (np.ndarray): Points corresponding to static objects.
     """
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pc)
 
-    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
+    # Masks for moving and static points
+    moving_mask = np.zeros(agg_pc.shape[0], dtype=bool)
+    static_mask = np.ones(agg_pc.shape[0], dtype=bool)
 
-    # Extract inliers and outliers
-    inlier_pcd = pcd.select_by_index(ind)
-    outlier_pcd = pcd.select_by_index(ind, invert=True)
+    for ann in annotations:
 
-    outlier_pcd.paint_uniform_color([0, 0, 1])  # Red
+        # Get velocity
+        velocity = get_velocity(ann)
+        is_moving = velocity > v_t
 
-    combined_pcd = inlier_pcd + outlier_pcd
-    o3d.visualization.draw_geometries([combined_pcd])
-    return combined_pcd
+        # Bounding box for object
+   
+        box = Box(
+        ann['translation'],
+        ann['size'],
+        Quaternion(ann['rotation'])
+        )
+        # Get inside box points
+        points_inside_box = points_in_box(box, agg_pc.T)
+
+        if is_moving and points_inside_box.sum() > 30:
+            moving_mask[points_inside_box] = True
+        else:
+            static_mask[points_inside_box] = False
+
+    moving_points = agg_pc[moving_mask]
+    static_points = agg_pc[static_mask]
+
+    return moving_points, static_points
+
+
+def visualize_static_and_moving_points(static_points, moving_points=[]):
+    """
+    Visualize moving and static points using Open3D.
+
+    Parameters:
+        static_points (np.ndarray): Points corresponding to static objects (Nx3).
+        moving_points (np.ndarray): Points corresponding to moving objects (Nx3).
+    """
+    # Create Open3D point clouds
+    moving_pcd = o3d.geometry.PointCloud()
+    static_pcd = o3d.geometry.PointCloud()
+
+    moving_pcd.points = o3d.utility.Vector3dVector(moving_points)
+    static_pcd.points = o3d.utility.Vector3dVector(static_points)
+
+    # Assign color for moving object: Red
+    moving_pcd.paint_uniform_color([1, 0, 0])  # Red
+
+    # Visualize moving and static points
+    o3d.visualization.draw_geometries([moving_pcd, static_pcd])
+
+
+def get_velocity(ann):
+    if 'velocity' in ann:
+        return np.linalg.norm(ann['velocity'], ord=2)
+    elif ann['prev']:
+        # Calculate velocity using previous annotation
+        current_translation = np.array(ann['translation'])
+        current_timestamp = nusc.get('sample', ann['sample_token'])['timestamp']
+        prev_ann = nusc.get('sample_annotation', ann['prev'])
+        prev_translation = np.array(prev_ann['translation'])
+        prev_timestamp = nusc.get('sample', prev_ann['sample_token'])['timestamp']
+        
+        displacement = current_translation - prev_translation
+        time_delta = (current_timestamp - prev_timestamp) / 1e6  # Convert microseconds to seconds
+        return np.linalg.norm(displacement) / time_delta
+    else:
+        # No velocity info or no previous annotation
+        return 0.0
+
+
+def show_scene_image():
+    # Scene selection
+    scene_name = "scene-0103"
+    scene = next(s for s in nusc.scene if s["name"] == scene_name)
+
+    # Iterate through samples in the scene
+    current_sample_token = scene['first_sample_token']
+    while current_sample_token:
+        # Load the sample
+        sample = nusc.get('sample', current_sample_token)
+
+        # Camera data
+        for cam in ['CAM_FRONT', 'CAM_FRONT_LEFT']:
+            cam_token = sample['data'][cam]
+            cam_data = nusc.get('sample_data', cam_token)
+            cam_file_path = nusc.get_sample_data_path(cam_token)
+
+            # Visualize the camera image (optional)
+            img = plt.imread(cam_file_path)
+            plt.imshow(img)
+            plt.title(cam)
+            plt.show()
+        current_sample_token = sample['next']
