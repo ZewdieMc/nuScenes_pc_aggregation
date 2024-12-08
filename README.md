@@ -28,3 +28,7 @@ chmod u+x main.py
   
   ## Video
 [Watch the video here](https://youtu.be/TQPIMGpfR2s)
+
+
+## TODO
+<font color='red'>Only add color information to the static points and remove the  moving objects(trivial)</font>
