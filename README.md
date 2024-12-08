@@ -11,3 +11,16 @@ pip install nuscenes-devkit &> /dev/null            # Install nuScenes.
 chmod u+x main.py
 ./main.py
 ```
+## outputs
+  <p style="display:flex; flex-wrap:nowrap; gap:2px">
+  <img src="./filterd.png" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./moving_removed.png" height="300" width="auto"/> &nbsp;&nbsp;
+  </p><br>
+
+## 
+  <p style="display:flex; flex-wrap:nowrap; gap:2px">
+  <img src="./moving_f.gif" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./colored.gif" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./colored2.gif" height="300" width="auto"/> &nbsp;&nbsp;
+  </p><br>
+  
