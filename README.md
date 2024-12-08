@@ -13,14 +13,14 @@ chmod u+x main.py
 ```
 ## outputs
   <p style="display:flex; flex-wrap:nowrap; gap:2px">
-  <img src="./filterd.png" height="300" width="auto"/> &nbsp;&nbsp;
-  <img src="./moving_removed.png" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./images/filterd.png" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./images/moving_removed.png" height="300" width="auto"/> &nbsp;&nbsp;
   </p><br>
 
 ## 
   <p style="display:flex; flex-wrap:nowrap; gap:2px">
-  <img src="./moving_f.gif" height="300" width="auto"/> &nbsp;&nbsp;
-  <img src="./colored.gif" height="300" width="auto"/> &nbsp;&nbsp;
-  <img src="./colored2.gif" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./images/moving_f.gif" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./images/colored.gif" height="300" width="auto"/> &nbsp;&nbsp;
+  <img src="./images/colored2.gif" height="300" width="auto"/> &nbsp;&nbsp;
   </p><br>
   
