@@ -111,7 +111,7 @@ def draw_pc(pc, pc_colors):
     pcd.points = o3d.utility.Vector3dVector(pc)
     pcd.colors = o3d.utility.Vector3dVector(pc_colors)
     vis = o3d.visualization.Visualizer()
-    vis.create_window(window_name="Point Cloud", width=800, height=600)
+    vis.create_window(window_name="Point Cloud")
     vis.get_render_option().background_color = np.array([0, 0, 0])                                      # Black background
     vis.add_geometry(pcd)
     vis.poll_events()

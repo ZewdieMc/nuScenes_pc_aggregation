@@ -30,6 +30,8 @@ def project_points_to_image(pc:np.ndarray, cam_intrinsic: np.ndarray, cam_extrin
     pc_img = pc_img[:, :2] / pc_img[:, 2:]
 
     return pc_img
+
+
 def get_color_from_image(pc_img:np.ndarray, image):
     """
     Get color values from the image for the projected 2D points.
