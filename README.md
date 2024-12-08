@@ -1,6 +1,8 @@
 # nuScenes point cloud aggregation
 ## Download the dataset and Install nuScenes devkit
 ```sh
+git clone git@github.com:ZewdieMc/nuScenes_pc_aggregation.git
+cd nuScenes_pc_aggregation
 mkdir -p data/sets/nuscenes                         # Create folder to save the dataset in
 wget https://www.nuscenes.org/data/v1.0-mini.tgz    # Download the mini split
 tar -xf v1.0-mini.tgz -C data/sets/nuscenes         # Extract the mini split
