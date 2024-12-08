@@ -23,7 +23,7 @@ def load_lidar_point_cloud(sample_data_token):
     ld_file_path = f"{DATA_ROOT}/{lidar_data['filename']}"
     pc = np.fromfile(ld_file_path, dtype=np.float32).reshape(-1, 5)
     
-    return pc[:, :3] # x, y, z only
+    return pc[:, :3]                                                                                    # x, y, z only
 
 def transform_point_cloud(pc, lidar_t, lidar_R, ego_t, ego_R):
     """
@@ -81,18 +81,18 @@ def aggregate_pc():
         # Transform the point cloud to global coordinate frame using ego pose
         pc_global   = transform_point_cloud(pc, lidar_t, lidar_R, ego_t, ego_R)
         cam_data_tokens = [
-            sample['data'][camera] for camera in 
-            ['CAM_FRONT', 
-             'CAM_BACK', 
-             'CAM_BACK_LEFT', 
-             'CAM_FRONT_LEFT', 
-             'CAM_FRONT_RIGHT', 
-             'CAM_BACK_RIGHT']
+            sample['data'][f'CAM_{camera}'] for camera in 
+            ['FRONT', 
+             'FRONT_LEFT', 
+             'FRONT_RIGHT', 
+             'BACK', 
+             'BACK_LEFT', 
+             'BACK_RIGHT']
              ]
         
         _, colors = enhance_point_cloud_with_colors(pc_global, cam_data_tokens, nusc)
-        pc_colors.append(colors)
 
+        pc_colors.append(colors)
         aggregated_pc.append(pc_global)
 
         for ann_token in sample['anns']:
