@@ -15,6 +15,7 @@ def project_points_to_image(pc:np.ndarray, cam_intrinsic: np.ndarray, cam_extrin
 
     Returns:
         np.ndarray: 2D points (Nx2).
+        np.ndarray: Depth values (Nx1).
     """
 
     # convert points to homogenous coordinates
@@ -23,16 +24,19 @@ def project_points_to_image(pc:np.ndarray, cam_intrinsic: np.ndarray, cam_extrin
     # Transform to camera coordinate systems
     pc_cam = (cam_extrinsic @ pc_h.T).T
 
+    # Extract depth values (z-coordinate in camera frame)
+    depths = pc_cam[:, 2]
+
     # Apply intrinsic transformation
     pc_img = (cam_intrinsic @ pc_cam[:, :3].T).T
 
     # Normalize to get pixel cooridnates
     pc_img = pc_img[:, :2] / pc_img[:, 2:]
 
-    return pc_img
+    return pc_img, depths
 
 
-def get_color_from_image(pc_img:np.ndarray, image):
+def get_color_from_image(pc_img:np.ndarray, depths:np.ndarray, image):
     """
     Get color values from the image for the projected 2D points.
 
@@ -46,9 +50,9 @@ def get_color_from_image(pc_img:np.ndarray, image):
     h, w, _ = image.shape
     colors = []
 
-    for pt in pc_img:
+    for pt, depth in zip(pc_img, depths):
         x, y = int(pt[0]), int(pt[1])
-        if 0 <= x < w and 0 <= y < h:
+        if 0 <= x < w and 0 <= y < h and depth > 0:                                         # Check if point is infront of camera
             colors.append(image[y, x, :])
         else:
             colors.append([0, 0, 0])                                                        # Default color for out-of-bound points
@@ -98,10 +102,10 @@ def enhance_point_cloud_with_colors(static_points, cam_data_tokens, nusc):
         image = plt.imread(img_path)
 
         # Project points to image plane
-        points_img = project_points_to_image(static_points, cam_intrinsic, cam_extrinsic)
+        points_img, depths = project_points_to_image(static_points, cam_intrinsic, cam_extrinsic)
 
         # Get color values from the image
-        cam_colors = get_color_from_image(points_img, image)
+        cam_colors = get_color_from_image(points_img, depths, image)
 
         # Calculate distances from camera to points
         cam_position = cam_extrinsic[:3, 3]
