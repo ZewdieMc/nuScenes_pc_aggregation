@@ -59,11 +59,11 @@ def enhance_point_cloud_with_colors(static_points, cam_data_tokens, nusc):
     Enhance the static point cloud with color values from the camera images.
 
     Parameters:
-        static_points (np.ndarray): Static points (Nx3).
+        points (np.ndarray): points (Nx3).
         cam_data_tokens (list): List of camera data tokens.
 
     Returns:
-        o3d.geometry.PointCloud: Enhanced point cloud with colors.
+        list: color array for the points.
     """
     colors = np.zeros((static_points.shape[0], 3))
     distances = np.full(static_points.shape[0], np.inf)

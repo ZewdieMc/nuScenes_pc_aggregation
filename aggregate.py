@@ -112,7 +112,7 @@ def draw_pc(pc, pc_colors):
     pcd.colors = o3d.utility.Vector3dVector(pc_colors)
     vis = o3d.visualization.Visualizer()
     vis.create_window(window_name="Point Cloud", width=800, height=600)
-    vis.get_render_option().background_color = np.array([0, 0, 0])  # Black background
+    vis.get_render_option().background_color = np.array([0, 0, 0])                                      # Black background
     vis.add_geometry(pcd)
     vis.poll_events()
     vis.update_renderer()
@@ -130,9 +130,6 @@ def visualize_pc(pc_sequence, delay=0.1):
     vis = o3d.visualization.Visualizer()
     vis.create_window()
 
-    # vis.get_render_option().background_color = np.array([0, 0, 0])
-
-    # Add an initial point cloud geometry to the visualizer
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pc_sequence[0])
     vis.add_geometry(pcd)
@@ -180,7 +177,6 @@ def detect_moving_objects(agg_pc, annotations, v_t = 0.25):
         is_moving = velocity > v_t
 
         # Bounding box for object
-   
         box = Box(
         ann['translation'],
         ann['size'],
@@ -232,7 +228,7 @@ def get_velocity(ann):
         prev_translation    =   np.array(prev_ann['translation'])
         prev_timestamp      =   nusc.get('sample', prev_ann['sample_token'])['timestamp']
         displacement        =   current_translation - prev_translation
-        time_delta          =   (current_timestamp - prev_timestamp) / 1e6  # Convert microseconds to seconds
+        time_delta          =   (current_timestamp - prev_timestamp) / 1e6                                  # Convert microseconds to seconds
         return np.linalg.norm(displacement) / time_delta
     else:
         # No velocity info or no previous annotation
