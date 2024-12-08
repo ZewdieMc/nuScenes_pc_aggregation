@@ -8,6 +8,7 @@ from nuscenes.utils.geometry_utils import points_in_box
 import time
 from nuscenes.utils.data_classes import Box
 import matplotlib.pyplot as plt
+from camera_pc_utils import *
 
 
 # Initialize NuScenes devkit
@@ -54,34 +55,43 @@ def aggregate_pc():
 
     aggregated_pc = []
     annotations = []
+    pc_colors = []
     idx = 1 # Scene index
     sample_token = nusc.scene[idx]['first_sample_token']  
     print(f"Scene {idx}: {nusc.scene[idx]['name']}")   
     while sample_token:
         sample = nusc.get('sample', sample_token)
-        lidar_data_token = sample['data']['LIDAR_TOP']
-
-        cam_data_token = sample['data']['CAM_FRONT']
-        cam_data = nusc.get('sample_data', cam_data_token)
-
+        lidar_data_token    = sample['data']['LIDAR_TOP']
 
         # Get lidar sample data
         lidar_data = nusc.get('sample_data', lidar_data_token)        
 
         lidar_calib = nusc.get('calibrated_sensor', lidar_data['calibrated_sensor_token'])
-        lidar_R = lidar_calib['rotation']                                                       # Quaternion [w, x, y, z]
-        lidar_t = np.array(lidar_calib['translation'])                                          # [x, y, z]
+        lidar_R     = lidar_calib['rotation']                                                       # Quaternion [w, x, y, z]
+        lidar_t     = np.array(lidar_calib['translation'])                                          # [x, y, z]
 
         # Load the point cloud
         pc  = load_lidar_point_cloud(lidar_data_token)
 
         # Get the ego pose in global coordinate frame
-        ego_pose = nusc.get('ego_pose', lidar_data['ego_pose_token'])
-        ego_t = np.array(ego_pose['translation'])                                               # [x, y, z]
-        ego_R = ego_pose['rotation']                                                            # Quaternion [w, x, y, z]
+        ego_pose    = nusc.get('ego_pose', lidar_data['ego_pose_token'])
+        ego_t       = np.array(ego_pose['translation'])                                               # [x, y, z]
+        ego_R       = ego_pose['rotation']                                                            # Quaternion [w, x, y, z]
 
         # Transform the point cloud to global coordinate frame using ego pose
-        pc_global = transform_point_cloud(pc, lidar_t, lidar_R, ego_t, ego_R)
+        pc_global   = transform_point_cloud(pc, lidar_t, lidar_R, ego_t, ego_R)
+        cam_data_tokens = [
+            sample['data'][camera] for camera in 
+            ['CAM_FRONT', 
+             'CAM_BACK', 
+             'CAM_BACK_LEFT', 
+             'CAM_FRONT_LEFT', 
+             'CAM_FRONT_RIGHT', 
+             'CAM_BACK_RIGHT']
+             ]
+        
+        _, colors = enhance_point_cloud_with_colors(pc_global, cam_data_tokens, nusc)
+        pc_colors.append(colors)
 
         aggregated_pc.append(pc_global)
 
@@ -91,19 +101,21 @@ def aggregate_pc():
 
         sample_token = sample['next']
 
-    return aggregated_pc, annotations
+    return aggregated_pc, annotations, pc_colors
 
-def draw_pc(pc):
+def draw_pc(pc, pc_colors):
     """
     Visualize the point cloud
     """
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pc)
-
+    pcd.colors = o3d.utility.Vector3dVector(pc_colors)
     vis = o3d.visualization.Visualizer()
     vis.create_window(window_name="Point Cloud", width=800, height=600)
-    # vis.get_render_option().background_color = np.array([0, 0, 0])  # Black background
+    vis.get_render_option().background_color = np.array([0, 0, 0])  # Black background
     vis.add_geometry(pcd)
+    vis.poll_events()
+    vis.update_renderer()
     vis.run()
     vis.destroy_window()
 
@@ -188,7 +200,7 @@ def detect_moving_objects(agg_pc, annotations, v_t = 0.25):
     return moving_points, static_points
 
 
-def visualize_static_and_moving_points(static_points, moving_points=[]):
+def visualize_static_and_moving_points(static_points, pc_colors, moving_points=[]):
     """
     Visualize moving and static points using Open3D.
 
@@ -197,11 +209,10 @@ def visualize_static_and_moving_points(static_points, moving_points=[]):
         moving_points (np.ndarray): Points corresponding to moving objects (Nx3).
     """
     # Create Open3D point clouds
-    moving_pcd = o3d.geometry.PointCloud()
-    static_pcd = o3d.geometry.PointCloud()
-
-    moving_pcd.points = o3d.utility.Vector3dVector(moving_points)
-    static_pcd.points = o3d.utility.Vector3dVector(static_points)
+    moving_pcd          =   o3d.geometry.PointCloud()
+    static_pcd          =   o3d.geometry.PointCloud()
+    moving_pcd.points   =   o3d.utility.Vector3dVector(moving_points)
+    static_pcd.points   =   o3d.utility.Vector3dVector(static_points)
 
     # Assign color for moving object: Red
     moving_pcd.paint_uniform_color([1, 0, 0])  # Red
@@ -215,14 +226,13 @@ def get_velocity(ann):
         return np.linalg.norm(ann['velocity'], ord=2)
     elif ann['prev']:
         # Calculate velocity using previous annotation
-        current_translation = np.array(ann['translation'])
-        current_timestamp = nusc.get('sample', ann['sample_token'])['timestamp']
-        prev_ann = nusc.get('sample_annotation', ann['prev'])
-        prev_translation = np.array(prev_ann['translation'])
-        prev_timestamp = nusc.get('sample', prev_ann['sample_token'])['timestamp']
-        
-        displacement = current_translation - prev_translation
-        time_delta = (current_timestamp - prev_timestamp) / 1e6  # Convert microseconds to seconds
+        current_translation =   np.array(ann['translation'])
+        current_timestamp   =   nusc.get('sample', ann['sample_token'])['timestamp']
+        prev_ann            =   nusc.get('sample_annotation', ann['prev'])
+        prev_translation    =   np.array(prev_ann['translation'])
+        prev_timestamp      =   nusc.get('sample', prev_ann['sample_token'])['timestamp']
+        displacement        =   current_translation - prev_translation
+        time_delta          =   (current_timestamp - prev_timestamp) / 1e6  # Convert microseconds to seconds
         return np.linalg.norm(displacement) / time_delta
     else:
         # No velocity info or no previous annotation
