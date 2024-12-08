@@ -24,3 +24,5 @@ chmod u+x main.py
   <img src="./images/colored2.gif" height="300" width="auto"/> &nbsp;&nbsp;
   </p><br>
   
+  ## Video
+[Watch the video here](https://youtu.be/TQPIMGpfR2s)
