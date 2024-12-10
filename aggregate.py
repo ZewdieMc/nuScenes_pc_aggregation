@@ -74,9 +74,9 @@ def aggregate_pc():
         pc  = load_lidar_point_cloud(lidar_data_token)
 
         # Get the ego pose in global coordinate frame
-        ego_pose    = nusc.get('ego_pose', lidar_data['ego_pose_token'])
-        ego_t       = np.array(ego_pose['translation'])                                               # [x, y, z]
-        ego_R       = ego_pose['rotation']                                                            # Quaternion [w, x, y, z]
+        ego_pose    =   nusc.get('ego_pose', lidar_data['ego_pose_token'])
+        ego_t       =   np.array(ego_pose['translation'])                                               # [x, y, z]
+        ego_R       =   ego_pose['rotation']                                                            # Quaternion [w, x, y, z]
 
         # Transform the point cloud to global coordinate frame using ego pose
         pc_global   = transform_point_cloud(pc, lidar_t, lidar_R, ego_t, ego_R)
