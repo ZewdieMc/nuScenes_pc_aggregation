@@ -43,13 +43,10 @@ The `draw_pc` function visualizes the point cloud using Open3D. It creates an Op
   </p><br>
 
 
-## 
-  <p style="display:flex; flex-wrap:nowrap; gap:2px">
-  <img src="./images/moving_f.gif" height="300" width="auto"/> &nbsp;&nbsp;
-  <img src="./images/colored.gif" height="300" width="auto"/> &nbsp;&nbsp;
-  <img src="./images/colored2.gif" height="300" width="auto"/> &nbsp;&nbsp;
-  </p><br>
   
-  ## Video
-[Watch the video here](https://youtu.be/TQPIMGpfR2s)
+## Video on youtube
+[Watch the video here](https://youtu.be/9zdVQy2O1u0)
+
+## Video on current folder
+[Watch the video here](./aggregation.mp4)
 
